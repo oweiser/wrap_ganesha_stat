@@ -1,1 +1,9 @@
 # wrap_ganesha_stat
+minimum requirement /Ganesha installed
+
+[root@ces02-hs ~]# rpm -qa | grep -i ganesha
+gpfs.nfs-ganesha-gpfs-2.5.3-ibm030.01.el7.x86_64
+gpfs.nfs-ganesha-2.5.3-ibm030.01.el7.x86_64
+gpfs.nfs-ganesha-utils-2.5.3-ibm030.01.el7.x86_64
+gpfs.pm-ganesha-10.0.0-0.el7.x86_64
+ 
