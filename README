@@ -7,3 +7,13 @@ gpfs.nfs-ganesha-2.5.3-ibm030.01.el7.x86_64
 gpfs.nfs-ganesha-utils-2.5.3-ibm030.01.el7.x86_64
 gpfs.pm-ganesha-10.0.0-0.el7.x86_64
  
+Installation:
+----------------------------
+
+download the file... make it executable
+
+
+quick start:
+------------
+run the command w/o any options gives  NFSv3 statistics
+run the command mmnfsperf -v 4   gives NVSv4 statistics
