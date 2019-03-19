@@ -1,0 +1,129 @@
+#!/usr/bin/perl
+######################################################################
+#                                                                    #
+#             ======      ============    ==          ==             #
+#               ==        ==          ==  ====      ====             #
+#               ==        ==          ==  ==  ==  ==  ==             #
+#               ==        ============    ==    ==    ==             #
+#               ==        ==          ==  ==          ==             #
+#               ==        ==          ==  ==          ==             #
+#             ======      ============    ==          ==             #
+#                                                                    #
+######################################################################
+#
+## This script is provided as-is. No support is given. Any damage
+# resulting from the use or misuse of this script are not the responsibility
+# of IBM. Contact olaf.weiser@de.ibm.com for updates/bug reports/feature requests.
+#
+# Program       : name it as you want .. I picked mmnfsperf
+# Author        : olaf weiser
+# Changes:      1.0 initial version   2019-03-19
+#            
+
+use POSIX ;
+use Term::ANSIColor;
+# predefined values
+
+@COL = ("red",  "yellow",  "green" ,  "blue" , "purple");
+@MET = ("BY" , "KB", "MB", "GB", "TB");
+$ROUND = 3 ; # digits for latemcy after 0.xxx
+
+$INT = 1 ;  # intervall in sec
+$VERS = "iov3";
+
+# work on args
+foreach $i  (0 .. $#ARGV) {
+
+      if($ARGV[$i] eq "-i") { $INT = $ARGV[$i+1] }
+      if(($ARGV[$i] eq "-v") && ( $ARGV[$i+1] eq "4")) { print "vers=4 \n"; $VERS = "iov4" }
+}
+
+
+
+
+#[root@homes01nsd01 ~]# ganesha_stats iov3
+#EXPORT 0: Export does not have any NFSv3 activity
+#
+#EXPORT 3:
+#                requested       transferred          total          errors         latency      queue wait
+#READv3:         13884788577163  13809422376234  200068748              0        80903232923698  4135960160557
+#WRITEv3:        9522505157433   9520484879460   195979710              0        344558224285615 329271218918171
+#
+#                requested       transferred          total          errors         latency      queue wait
+#READv4:                0               0               0               0               0               0
+#WRITEv4:               0               0               0               0               0               0
+#
+#EXPORT 2:
+#                requested       transferred          total          errors         latency      queue wait
+#READv4:         87604068352     87604068352        83548               0        873650102829    3688005395
+#WRITEv4:        123699343360    123699343360      127542               0        1256165036470   3035575199
+#
+$V = 0 ;  # simple counter from inerVal to interVal 
+print "\n \n";
+print "       NFS READ     NFS WRITE       reads/s      writes/s       Latency R          Latency W \n";                                                         
+print "      [ BY , KB , MB , GB, TB ]                                  [ms]                 [ms]   \n";         
+print "---------------------------------------------------------------------------------------------\n";  
+#  ########################################## start the endless loooooooop ##########################################################                                                     
+while ( 1 eq 1 )  {         
+sleep $INT ;                                                                                                                      
+if ( $VERS eq "iov3" ) {  @RAW=`ganesha_stats $VERS | grep -e READ -e WRITE ` } else   {
+                          @RAW=`ganesha_stats $VERS | grep -e READ -e WRITE ` }
+# reset arrays to zero
+$R_BYTES{$V} = 0; $R_OPS{$V} = 0 ; $R_LAT{$V} = 0 ; $W_BYTES{$V} = 0 ; $W_OPS{$V} = 0 ; $W_LAT{$V} = 0 ;
+foreach $LINE (@RAW) {                                                                                                                                                                                        
+   @FIELD = split ( /\s+/, $LINE ) ;                                                                                                                                                                                 
+     if ( $FIELD[0] =~ /READ/ ) {                                                                                                                               
+        $R_BYTES{$V} = $R_BYTES{$V} + $FIELD[2] ; 
+        $R_OPS{$V}   = $R_OPS{$V}   + $FIELD[3] ;
+        $R_LAT{$V}   = $R_LAT{$V}   + $FIELD[5] ;
+     } elsif ( $FIELD[0] =~ /WRITE/ )  {                    
+       $W_BYTES{$V} = $W_BYTES{$V} + $FIELD[2] ;
+       $W_OPS{$V}   = $W_OPS{$V} + $FIELD[3] ;
+       $W_LAT{$V}   = $W_LAT{$V} + $FIELD[5] ;
+     }                          
+} #end of foreach LINE                                                                                                                                                                                                                                                                                     
+#### do the fency calc ####################################################### 
+if ( $V eq 0 ) { $dummy ++} else { 
+$O=$V -1 ;
+$INT_R_BYTES = $R_BYTES{$V} - $R_BYTES{$O} ;
+$R_BYTE=$INT_R_BYTES/$INT ;                
+$INT_W_BYTES = $W_BYTES{$V} - $W_BYTES{$O} ;
+$W_BYTE=$INT_W_BYTES/$INT ;                
+$INT_R_OPS = $R_OPS{$V} - $R_OPS{$O} ; $R_OPS=$INT_R_OPS/$INT ;
+$INT_W_OPS = $W_OPS{$V} - $W_OPS{$O} ; $W_OPS=$INT_W_OPS/$INT ;
+                                                                                                                                                                                                                                                                                                           
+$R_LAT = $R_LAT{$V} - $R_LAT{$O} ; $R_LAT = $R_LAT/$INT ;$R_OPS{$V}  ;  $R_LAT=$R_LAT/1000/1000 ;# in ms now  
+$W_LAT = $W_LAT{$V} - $W_LAT{$O} ; $W_LAT = $W_LAT/$INT ;$W_OPS{$V}  ;  $W_LAT=$W_LAT/1000/1000 ;# in ms now 
+if ( $R_OPS > 0 ) { $R_LAT = $R_LAT / $R_OPS } else { $R_LAT = "n.a.";  };
+if ( $W_OPS > 0 ) { $W_LAT = $W_LAT / $W_OPS } else { $W_LAT = "n.a.";  };
+                                                                                                                                                                                                                                                                                                           
+# ok . now lets format it :
+$FFF = 10**$ROUND ; #my $factor = 10**$places;
+$R_BYTE = int ($R_BYTE) ; @LEN = split (//,$R_BYTE) ; $L=@LEN ; $C=floor ($L/4) ; $F_R=$COL[$C]; $M_R=$MET[$C]; $R_BYTE=ceil ($R_BYTE/(1024**$C) ) ;
+$W_BYTE = int ($W_BYTE) ; @LEN = split (//,$W_BYTE) ; $L=@LEN ; $C=floor ($L/4) ; $F_W=$COL[$C]; $M_W=$MET[$C]; $W_BYTE=ceil ($W_BYTE/(1024**$C) ) ;
+$R_OPS  = int ($R_OPS)  ;                                                                                                                                                                                                                                                                                  
+$W_OPS  = int ($W_OPS)  ;
+$R_LAT  = int ($R_LAT * $FFF) / $FFF ;
+$W_LAT  = int ($W_LAT * $FFF) / $FFF  ;
+
+
+} # do calc
+
+### print  what I have ###################################
+
+print colored (sprintf ("%10s %2s",$R_BYTE, $M_R), $F_R ) ; 
+   print colored (sprintf ("%10s %2s",$W_BYTE, $M_W), $F_W ) ; 
+     printf ("%15s",$R_OPS); 
+        printf ("%15s",$W_OPS) ; 
+          printf ("%15s",$R_LAT);
+           printf ("%15s",$W_LAT);
+
+
+print "\n";
+
+
+
+$V ++ ;
+}
+
+
